@@ -22,18 +22,18 @@ import (
 	"github.com/t2bot/matrix-key-server/db/models"
 )
 
-func GetAllOwnKeys() ([]models.OwnKey, error) {
+func GetAllOwnKeys() ([]*models.OwnKey, error) {
 	r, err := statements[selectAllSelfKeys].Query()
 	if err == sql.ErrNoRows {
-		return make([]models.OwnKey, 0), nil
+		return make([]*models.OwnKey, 0), nil
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	var results []models.OwnKey
+	var results []*models.OwnKey
 	for r.Next() {
-		var v models.OwnKey
+		v := &models.OwnKey{}
 		err = r.Scan(&v.ID, &v.PublicKey, &v.PrivateKey, &v.ExpiresTs)
 		if err != nil {
 			return nil, err

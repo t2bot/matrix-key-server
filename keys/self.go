@@ -18,13 +18,13 @@ package keys
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
 	"github.com/t2bot/matrix-key-server/db"
 	"github.com/t2bot/matrix-key-server/db/models"
+	"github.com/t2bot/matrix-key-server/signing"
 	"github.com/t2bot/matrix-key-server/util"
 	"golang.org/x/crypto/ed25519"
 )
@@ -61,8 +61,8 @@ func GetSelfKey() (*SelfKey, error) {
 			}
 			keyId = fmt.Sprintf("ed25519:%s", keyId)
 
-			pubEncoded := base64.RawStdEncoding.EncodeToString(pub)
-			privEncoded := base64.RawStdEncoding.EncodeToString(priv)
+			pubEncoded := signing.EncodeUnpaddedBase64ToString(pub)
+			privEncoded := signing.EncodeUnpaddedBase64ToString(priv)
 
 			dbKey := &models.OwnKey{
 				ID:         models.KeyID(keyId),
@@ -82,7 +82,7 @@ func GetSelfKey() (*SelfKey, error) {
 				Priv:   priv,
 			}
 		} else {
-			logrus.Info("There are %d active keys for this server", len(activeKeyIds))
+			logrus.Infof("There are %d active keys for this server", len(activeKeyIds))
 
 			k, err := db.GetOwnKey(activeKeyIds[0])
 			if err != nil {
@@ -92,24 +92,32 @@ func GetSelfKey() (*SelfKey, error) {
 				return nil, errors.New("failed to fetch active key")
 			}
 
-			pubDecoded, err := base64.RawStdEncoding.DecodeString(string(k.PublicKey))
+			loadedKey, err := LoadKey(k)
 			if err != nil {
 				return nil, err
 			}
-
-			privDecoded, err := base64.RawStdEncoding.DecodeString(string(k.PrivateKey))
-			if err != nil {
-				return nil, err
-			}
-
-			ownKey = &SelfKey{
-				RawKey: k,
-				ID:     k.ID,
-				Pub:    ed25519.PublicKey(pubDecoded),
-				Priv:   ed25519.PrivateKey(privDecoded),
-			}
+			ownKey = loadedKey
 		}
 	}
 
 	return ownKey, nil
+}
+
+func LoadKey(key *models.OwnKey) (*SelfKey, error) {
+	pubDecoded, err := signing.DecodeUnpaddedBase64String(string(key.PublicKey))
+	if err != nil {
+		return nil, err
+	}
+
+	privDecoded, err := signing.DecodeUnpaddedBase64String(string(key.PrivateKey))
+	if err != nil {
+		return nil, err
+	}
+
+	return &SelfKey{
+		RawKey: key,
+		ID:     key.ID,
+		Pub:    ed25519.PublicKey(pubDecoded),
+		Priv:   ed25519.PrivateKey(privDecoded),
+	}, nil
 }

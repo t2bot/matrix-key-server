@@ -24,8 +24,11 @@ import (
 	"github.com/t2bot/matrix-key-server/db"
 	"github.com/t2bot/matrix-key-server/db/models"
 	"github.com/t2bot/matrix-key-server/keys"
+	"github.com/t2bot/matrix-key-server/signing"
 	"github.com/t2bot/matrix-key-server/util"
 )
+
+type Signatures map[string]map[string]string
 
 type VerifyKey struct {
 	Key models.Base64EncodedKeyData `json:"key"`
@@ -37,6 +40,11 @@ type OldVerifyKey struct {
 }
 
 type ServerKeyResult struct {
+	*ServerKeyResultUnsigned
+	Signatures Signatures `json:"signatures"`
+}
+
+type ServerKeyResultUnsigned struct {
 	ServerName    string                        `json:"server_name"`
 	ValidUntilTs  int64                         `json:"valid_until_ts"`
 	VerifyKeys    map[models.KeyID]VerifyKey    `json:"verify_keys"`
@@ -46,11 +54,11 @@ type ServerKeyResult struct {
 func GetLocalKeys(r *http.Request, log *logrus.Entry) interface{} {
 	ownKeys, err := db.GetAllOwnKeys()
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return common.InternalServerError("Failed to get keys")
 	}
 
-	resp := &ServerKeyResult{
+	unsignedResp := &ServerKeyResultUnsigned{
 		ServerName:    keys.SelfDomainName,
 		ValidUntilTs:  util.NowMillis() + 86400000, // 24 hours
 		VerifyKeys:    make(map[models.KeyID]VerifyKey),
@@ -59,18 +67,39 @@ func GetLocalKeys(r *http.Request, log *logrus.Entry) interface{} {
 
 	for _, k := range ownKeys {
 		if k.ExpiresTs > 0 {
-			resp.OldVerifyKeys[k.ID] = OldVerifyKey{
+			unsignedResp.OldVerifyKeys[k.ID] = OldVerifyKey{
 				ExpiredTs: k.ExpiresTs,
 				Key:       k.PublicKey,
 			}
 		} else {
-			resp.VerifyKeys[k.ID] = VerifyKey{
+			unsignedResp.VerifyKeys[k.ID] = VerifyKey{
 				Key: k.PublicKey,
 			}
 		}
 	}
 
-	// TODO: Sign object
+	resp := &ServerKeyResult{
+		ServerKeyResultUnsigned: unsignedResp,
+		Signatures: Signatures{
+			keys.SelfDomainName: map[string]string{},
+		},
+	}
+
+	for _, key := range ownKeys {
+		loaded, err := keys.LoadKey(key)
+		if err != nil {
+			log.Error(err)
+			return common.InternalServerError("Failed to load private key")
+		}
+
+		signature, err := signing.GetSignatureOfObject(unsignedResp, loaded.Priv)
+		if err != nil {
+			log.Error(err)
+			return common.InternalServerError("Failed to sign response")
+		}
+
+		resp.Signatures[keys.SelfDomainName][string(loaded.ID)] = signature
+	}
 
 	return resp
 }
