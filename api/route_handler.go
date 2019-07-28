@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/sirupsen/logrus"
+	"github.com/t2bot/matrix-key-server/api/common"
 )
 
 type handler struct {
@@ -26,14 +27,14 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Process response
 	res := h.h(r, contextLog)
 	if res == nil {
-		res = &EmptyResponse{}
+		res = &common.EmptyResponse{}
 	}
 
 	contextLog.Info(fmt.Sprintf("Replying with result: %T %+v", res, res))
 
 	statusCode := http.StatusOK
 	switch result := res.(type) {
-	case *ErrorResponse:
+	case *common.ErrorResponse:
 		statusCode = result.HttpStatus
 		break
 	default:

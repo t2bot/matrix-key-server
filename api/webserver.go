@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/t2bot/matrix-key-server/api/federation_v1"
 	"github.com/t2bot/matrix-key-server/api/health"
+	"github.com/t2bot/matrix-key-server/api/keys_v2"
 )
 
 type route struct {
@@ -18,11 +19,14 @@ type route struct {
 func Run(listenHost string, listenPort int) {
 	rtr := mux.NewRouter()
 
-	versionHandler := handler{federation_v1.FederationVersion, "federation_version"}
 	healthzHandler := handler{health.Healthz, "healthz"}
+	versionHandler := handler{federation_v1.FederationVersion, "federation_version"}
+	localKeysHandler := handler{keys_v2.GetLocalKeys, "local_keys"}
 
 	routes := make(map[string]route)
 	routes["/_matrix/federation/v1/version"] = route{"GET", versionHandler}
+	routes["/_matrix/key/v2/server"] = route{"GET", localKeysHandler}
+	routes["/_matrix/key/v2/server/{keyId:[^/]+}"] = route{"GET", localKeysHandler}
 
 	for routePath, route := range routes {
 		logrus.Info("Registering route: " + route.method + " " + routePath)
