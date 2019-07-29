@@ -17,6 +17,8 @@
 package keys_v2
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -36,6 +38,14 @@ type BatchedServerKeys struct {
 	Keys []map[string]interface{} `json:"server_keys"`
 }
 
+type LookupCriteria struct {
+	MinValidTs int64 `json:"minimum_valid_until_ts"`
+}
+
+type BatchKeyLookup struct {
+	Keys map[string]map[string]LookupCriteria `json:"server_keys"`
+}
+
 func QueryKeysSingle(r *http.Request, log *logrus.Entry) interface{} {
 	var err error
 
@@ -53,19 +63,67 @@ func QueryKeysSingle(r *http.Request, log *logrus.Entry) interface{} {
 		}
 	}
 
+	expanded, errLike := findAndPrepareKeys(serverName, minValidTs, log)
+	if errLike != nil {
+		return errLike
+	}
+
+	return &BatchedServerKeys{Keys: []map[string]interface{}{expanded}}
+}
+
+func QueryKeysBatch(r *http.Request, log *logrus.Entry) interface{} {
+	lookup := &BatchKeyLookup{}
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Error(err)
+		return common.InternalServerError("Failed to read body")
+	}
+
+	err = json.Unmarshal(b, &lookup)
+	if err != nil {
+		log.Error(err)
+		return common.BadRequest("Body not JSON")
+	}
+
+	finalResp := &BatchedServerKeys{Keys: make([]map[string]interface{}, 0)}
+
+	for domain, keySearches := range lookup.Keys {
+		maxMinValidTs := int64(0)
+		for _, q := range keySearches {
+			if q.MinValidTs > maxMinValidTs {
+				maxMinValidTs = q.MinValidTs
+			}
+		}
+
+		if maxMinValidTs <= 0 {
+			maxMinValidTs = util.NowMillis()
+		}
+
+		expanded, errLike := findAndPrepareKeys(domain, maxMinValidTs, log)
+		if errLike != nil {
+			return errLike
+		}
+
+		finalResp.Keys = append(finalResp.Keys, expanded)
+	}
+
+	return finalResp
+}
+
+func findAndPrepareKeys(serverName string, minValidTs int64, log *logrus.Entry) (map[string]interface{}, interface{}) {
 	remoteKeys, err := keys.QueryRemoteKeys(models.ServerName(serverName), models.Timestamp(minValidTs))
 	if err != nil {
 		log.Error(err)
-		return common.InternalServerError("Fatal error retrieving keys")
+		return nil, common.InternalServerError("Fatal error retrieving keys")
 	}
 	if len(remoteKeys.Keys) == 0 {
 		log.Warn("Did not get any keys from remote server")
-		return &BatchedServerKeys{Keys: make([]map[string]interface{}, 0)}
+		return map[string]interface{}{}, nil
 	}
 
 	if string(remoteKeys.ServerName) != serverName {
 		log.Error("Got response from unexpected server")
-		return common.InternalServerError("Unexpected server_name")
+		return nil, common.InternalServerError("Unexpected server_name")
 	}
 
 	publicKeys := map[string]map[string]ed25519.PublicKey{
@@ -93,7 +151,7 @@ func QueryKeysSingle(r *http.Request, log *logrus.Entry) interface{} {
 			b, err := signing.DecodeUnpaddedBase64String(string(k.PublicKey))
 			if err != nil {
 				log.Error(err)
-				return common.InternalServerError("Failed to read remote public keys")
+				return nil, common.InternalServerError("Failed to read remote public keys")
 			}
 			publicKeys[string(k.ServerName)][string(k.ID)] = ed25519.PublicKey(b)
 		}
@@ -110,7 +168,7 @@ func QueryKeysSingle(r *http.Request, log *logrus.Entry) interface{} {
 	expanded, err := util.InterfaceToMap(resp)
 	if err != nil {
 		log.Error(err)
-		return common.InternalServerError("Failed to convert response")
+		return nil, common.InternalServerError("Failed to convert response")
 	}
 	if remoteKeys.NonStandardJSON != nil {
 		for k, v := range remoteKeys.NonStandardJSON {
@@ -121,20 +179,20 @@ func QueryKeysSingle(r *http.Request, log *logrus.Entry) interface{} {
 	ownKeys, err := db.GetAllOwnKeys()
 	if err != nil {
 		log.Error(err)
-		return common.InternalServerError("Failed to get own keys")
+		return nil, common.InternalServerError("Failed to get own keys")
 	}
 
 	for _, key := range ownKeys {
 		loaded, err := keys.LoadKey(key)
 		if err != nil {
 			log.Error(err)
-			return common.InternalServerError("Failed to load private key")
+			return nil, common.InternalServerError("Failed to load private key")
 		}
 
 		signature, err := signing.GetSignatureOfObject(expanded, loaded.Priv)
 		if err != nil {
 			log.Error(err)
-			return common.InternalServerError("Failed to sign response")
+			return nil, common.InternalServerError("Failed to sign response")
 		}
 
 		resp.Signatures[keys.SelfDomainName][string(loaded.ID)] = signature
@@ -152,8 +210,8 @@ func QueryKeysSingle(r *http.Request, log *logrus.Entry) interface{} {
 	err = signing.VerifySignatures(expanded, publicKeys)
 	if err != nil {
 		log.Error(err)
-		return common.InternalServerError("Failed last-minute signature verifications")
+		return nil, common.InternalServerError("Failed last-minute signature verifications")
 	}
 
-	return &BatchedServerKeys{Keys: []map[string]interface{}{expanded}}
+	return expanded, nil
 }

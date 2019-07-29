@@ -39,6 +39,7 @@ func Run(listenHost string, listenPort int) {
 	versionHandler := handler{federation_v1.FederationVersion, "federation_version"}
 	localKeysHandler := handler{keys_v2.GetLocalKeys, "local_keys"}
 	querySingleHandler := handler{keys_v2.QueryKeysSingle, "query_keys_single"}
+	queryBatchHandler := handler{keys_v2.QueryKeysBatch, "query_keys_batch"}
 
 	routes := make(map[string]route)
 	routes["/_matrix/federation/v1/version"] = route{"GET", versionHandler}
@@ -46,6 +47,7 @@ func Run(listenHost string, listenPort int) {
 	routes["/_matrix/key/v2/server/{keyId:[^/]+}"] = route{"GET", localKeysHandler}
 	routes["/_matrix/key/v2/query/{serverName:[^/]+}"] = route{"GET", querySingleHandler}
 	routes["/_matrix/key/v2/query/{serverName:[^/]+}/{keyId:[^/]+}"] = route{"GET", querySingleHandler}
+	routes["/_matrix/key/v2/query"] = route{"POST", queryBatchHandler}
 
 	for routePath, route := range routes {
 		logrus.Info("Registering route: " + route.method + " " + routePath)
