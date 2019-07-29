@@ -22,6 +22,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+	"github.com/t2bot/matrix-key-server/api/custom"
 	"github.com/t2bot/matrix-key-server/api/federation_v1"
 	"github.com/t2bot/matrix-key-server/api/health"
 	"github.com/t2bot/matrix-key-server/api/keys_v2"
@@ -40,6 +41,7 @@ func Run(listenHost string, listenPort int) {
 	localKeysHandler := handler{keys_v2.GetLocalKeys, "local_keys"}
 	querySingleHandler := handler{keys_v2.QueryKeysSingle, "query_keys_single"}
 	queryBatchHandler := handler{keys_v2.QueryKeysBatch, "query_keys_batch"}
+	verifyAuthHandler := handler{custom.VerifyAuthHeader, "verify_auth_header"}
 
 	routes := make(map[string]route)
 	routes["/_matrix/federation/v1/version"] = route{"GET", versionHandler}
@@ -48,6 +50,7 @@ func Run(listenHost string, listenPort int) {
 	routes["/_matrix/key/v2/query/{serverName:[^/]+}"] = route{"GET", querySingleHandler}
 	routes["/_matrix/key/v2/query/{serverName:[^/]+}/{keyId:[^/]+}"] = route{"GET", querySingleHandler}
 	routes["/_matrix/key/v2/query"] = route{"POST", queryBatchHandler}
+	routes["/_matrix/key/unstable/check_auth"] = route{"POST", verifyAuthHandler}
 
 	for routePath, route := range routes {
 		logrus.Info("Registering route: " + route.method + " " + routePath)
@@ -58,6 +61,10 @@ func Run(listenHost string, listenPort int) {
 	}
 
 	rtr.Handle("/healthz", healthzHandler).Methods("OPTIONS", "GET")
+	//rtr.Handle("/_matrix/federation/v1/publicRooms", handler{func(r *http.Request, log *logrus.Entry)interface{}{
+	//	log.Info(r.Header.Get("Authorization"))
+	//	return common.EmptyResponse{}
+	//}, "test"}).Methods("GET")
 	rtr.NotFoundHandler = handler{NotFoundHandler, "not_found"}
 	rtr.MethodNotAllowedHandler = handler{MethodNotAllowedHandler, "method_not_allowed"}
 
