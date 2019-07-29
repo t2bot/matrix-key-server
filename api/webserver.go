@@ -38,11 +38,14 @@ func Run(listenHost string, listenPort int) {
 	healthzHandler := handler{health.Healthz, "healthz"}
 	versionHandler := handler{federation_v1.FederationVersion, "federation_version"}
 	localKeysHandler := handler{keys_v2.GetLocalKeys, "local_keys"}
+	querySingleHandler := handler{keys_v2.QueryKeysSingle, "query_keys_single"}
 
 	routes := make(map[string]route)
 	routes["/_matrix/federation/v1/version"] = route{"GET", versionHandler}
 	routes["/_matrix/key/v2/server"] = route{"GET", localKeysHandler}
 	routes["/_matrix/key/v2/server/{keyId:[^/]+}"] = route{"GET", localKeysHandler}
+	routes["/_matrix/key/v2/query/{serverName:[^/]+}"] = route{"GET", querySingleHandler}
+	routes["/_matrix/key/v2/query/{serverName:[^/]+}/{keyId:[^/]+}"] = route{"GET", querySingleHandler}
 
 	for routePath, route := range routes {
 		logrus.Info("Registering route: " + route.method + " " + routePath)

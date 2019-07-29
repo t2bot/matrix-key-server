@@ -66,8 +66,8 @@ func GetSelfKey() (*SelfKey, error) {
 
 			dbKey := &models.OwnKey{
 				ID:         models.KeyID(keyId),
-				PublicKey:  models.Base64EncodedKeyData(pubEncoded),
-				PrivateKey: models.Base64EncodedKeyData(privEncoded),
+				PublicKey:  models.UnpaddedBase64EncodedData(pubEncoded),
+				PrivateKey: models.UnpaddedBase64EncodedData(privEncoded),
 				ExpiresTs:  0,
 			}
 			err = db.AddOwnActiveKey(dbKey.ID, dbKey.PublicKey, dbKey.PrivateKey)

@@ -20,6 +20,7 @@ import (
 	"database/sql"
 
 	_ "github.com/lib/pq" // postgres driver
+	"github.com/sirupsen/logrus"
 	"github.com/t2bot/matrix-key-server/db/migrations"
 )
 
@@ -43,6 +44,7 @@ func Setup(dbUrl string) error {
 	fnCalls := make([]func() error, 0)
 	fnCalls = append(fnCalls, func() error { return prepareMigrations(dbInstance.db) })
 	fnCalls = append(fnCalls, func() error { return applyMigration(dbInstance.db, migrations.Up20190727160045AddKeyTables) })
+	fnCalls = append(fnCalls, func() error { return applyMigration(dbInstance.db, migrations.Up20190728135345AddRemoteKeyTables) })
 	fnCalls = append(fnCalls, func() error { return prepareStatements(dbInstance.db) })
 
 	for _, fn := range fnCalls {
@@ -57,6 +59,7 @@ func Setup(dbUrl string) error {
 
 func prepareStatements(db *sql.DB) error {
 	for k, v := range queries {
+		logrus.Infof("Preparing statement %s: %s", k, v)
 		s, err := db.Prepare(v)
 		if err != nil {
 			return err

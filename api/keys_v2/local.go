@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"github.com/sirupsen/logrus"
+	"github.com/t2bot/matrix-key-server/api/api_models"
 	"github.com/t2bot/matrix-key-server/api/common"
 	"github.com/t2bot/matrix-key-server/db"
 	"github.com/t2bot/matrix-key-server/db/models"
@@ -28,29 +29,6 @@ import (
 	"github.com/t2bot/matrix-key-server/util"
 )
 
-type Signatures map[string]map[string]string
-
-type VerifyKey struct {
-	Key models.Base64EncodedKeyData `json:"key"`
-}
-
-type OldVerifyKey struct {
-	Key       models.Base64EncodedKeyData `json:"key"`
-	ExpiredTs models.Timestamp            `json:"expired_ts"`
-}
-
-type ServerKeyResult struct {
-	*ServerKeyResultUnsigned
-	Signatures Signatures `json:"signatures"`
-}
-
-type ServerKeyResultUnsigned struct {
-	ServerName    string                        `json:"server_name"`
-	ValidUntilTs  int64                         `json:"valid_until_ts"`
-	VerifyKeys    map[models.KeyID]VerifyKey    `json:"verify_keys"`
-	OldVerifyKeys map[models.KeyID]OldVerifyKey `json:"old_verify_keys"`
-}
-
 func GetLocalKeys(r *http.Request, log *logrus.Entry) interface{} {
 	ownKeys, err := db.GetAllOwnKeys()
 	if err != nil {
@@ -58,29 +36,29 @@ func GetLocalKeys(r *http.Request, log *logrus.Entry) interface{} {
 		return common.InternalServerError("Failed to get keys")
 	}
 
-	unsignedResp := &ServerKeyResultUnsigned{
+	unsignedResp := &api_models.ServerKeyResultUnsigned{
 		ServerName:    keys.SelfDomainName,
 		ValidUntilTs:  util.NowMillis() + 86400000, // 24 hours
-		VerifyKeys:    make(map[models.KeyID]VerifyKey),
-		OldVerifyKeys: make(map[models.KeyID]OldVerifyKey),
+		VerifyKeys:    make(map[models.KeyID]api_models.VerifyKey),
+		OldVerifyKeys: make(map[models.KeyID]api_models.OldVerifyKey),
 	}
 
 	for _, k := range ownKeys {
 		if k.ExpiresTs > 0 {
-			unsignedResp.OldVerifyKeys[k.ID] = OldVerifyKey{
+			unsignedResp.OldVerifyKeys[k.ID] = api_models.OldVerifyKey{
 				ExpiredTs: k.ExpiresTs,
 				Key:       k.PublicKey,
 			}
 		} else {
-			unsignedResp.VerifyKeys[k.ID] = VerifyKey{
+			unsignedResp.VerifyKeys[k.ID] = api_models.VerifyKey{
 				Key: k.PublicKey,
 			}
 		}
 	}
 
-	resp := &ServerKeyResult{
+	resp := &api_models.ServerKeyResult{
 		ServerKeyResultUnsigned: unsignedResp,
-		Signatures: Signatures{
+		Signatures: api_models.Signatures{
 			keys.SelfDomainName: map[string]string{},
 		},
 	}

@@ -17,12 +17,40 @@
 package models
 
 type KeyID string
-type Base64EncodedKeyData string
+type UnpaddedBase64EncodedData string
 type Timestamp int64
+type ServerName string
+type AdditionalJSON map[string]interface{}
 
 type OwnKey struct {
 	ID         KeyID
-	PublicKey  Base64EncodedKeyData
-	PrivateKey Base64EncodedKeyData
+	PublicKey  UnpaddedBase64EncodedData
+	PrivateKey UnpaddedBase64EncodedData
 	ExpiresTs  Timestamp
+}
+
+type RemoteServer struct {
+	ServerName      ServerName
+	UpdatedTs       Timestamp
+	ValidUntilTs    Timestamp
+	NonStandardJSON AdditionalJSON
+}
+
+type RemoteKey struct {
+	ServerName ServerName
+	ID         KeyID
+	PublicKey  UnpaddedBase64EncodedData
+	ExpiresTs  Timestamp
+}
+
+type RemoteSignature struct {
+	ServerName ServerName
+	KeyID      KeyID
+	Signature  UnpaddedBase64EncodedData
+}
+
+type CachedRemoteKeys struct {
+	*RemoteServer
+	Signatures []*RemoteSignature
+	Keys       []*RemoteKey
 }
