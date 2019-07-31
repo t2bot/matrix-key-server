@@ -61,10 +61,6 @@ func Run(listenHost string, listenPort int) {
 	}
 
 	rtr.Handle("/healthz", healthzHandler).Methods("OPTIONS", "GET")
-	//rtr.Handle("/_matrix/federation/v1/publicRooms", handler{func(r *http.Request, log *logrus.Entry)interface{}{
-	//	log.Info(r.Header.Get("Authorization"))
-	//	return common.EmptyResponse{}
-	//}, "test"}).Methods("GET")
 	rtr.NotFoundHandler = handler{NotFoundHandler, "not_found"}
 	rtr.MethodNotAllowedHandler = handler{MethodNotAllowedHandler, "method_not_allowed"}
 
