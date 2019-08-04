@@ -4,6 +4,10 @@ Implementation of a key server for Matrix.
 
 Support room: [#matrix-key-server:t2bot.io](https://matrix.to/#/#matrix-key-server:t2bot.io)
 
+**Caution**: Although this has notary server functionality, it is not yet recommended to point Synapse at this. It has not been tested - use at your own risk.
+
+Demo: https://federationtester.matrix.org#keys.t2host.io
+
 ## Building and running
 
 The key server will automatically generate itself a key to use on startup. The process is meant to be run 
