@@ -17,6 +17,7 @@
 package custom
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -38,11 +39,6 @@ func VerifyAuthHeader(r *http.Request, log *logrus.Entry) interface{} {
 	if err != nil {
 		log.Error(err)
 		return common.InternalServerError("Failed to read body")
-	}
-
-	var content string
-	if len(b) > 0 {
-		content = string(b)
 	}
 
 	auth := r.Header.Get("Authorization")
@@ -83,8 +79,14 @@ func VerifyAuthHeader(r *http.Request, log *logrus.Entry) interface{} {
 			},
 		},
 	}
-	if content != "" {
-		obj["content"] = content
+	if len(b) > 0 {
+		parsed := make(map[string]interface{})
+		err = json.Unmarshal(b, &parsed)
+		if err != nil {
+			log.Warn("Error parsing JSON body", err)
+		} else {
+			obj["content"] = parsed
+		}
 	}
 
 	validKeys, err := keys.QueryRemoteKeys(models.ServerName(origin), 0)
