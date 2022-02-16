@@ -80,6 +80,7 @@ func VerifyAuthHeader(r *http.Request, log *logrus.Entry) interface{} {
 		},
 	}
 	if len(b) > 0 {
+		log.Info("Trying to parse content")
 		parsed := make(map[string]interface{})
 		err = json.Unmarshal(b, &parsed)
 		if err != nil {
