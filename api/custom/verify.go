@@ -35,6 +35,10 @@ func VerifyAuthHeader(r *http.Request, log *logrus.Entry) interface{} {
 	uri := r.Header.Get("X-Keys-URI")
 	destination := r.Header.Get("X-Keys-Destination")
 
+	if strings.HasSuffix(uri, "?") {
+		uri = uri[0 : len(uri)-1]
+	}
+
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Error(err)
