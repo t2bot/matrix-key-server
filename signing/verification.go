@@ -19,6 +19,7 @@ package signing
 import (
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
 
 	"github.com/t2bot/matrix-key-server/util"
 	"golang.org/x/crypto/ed25519"
@@ -48,6 +49,8 @@ func VerifySignatures(obj interface{}, publicKeys map[string]map[string]ed25519.
 	if err != nil {
 		return err
 	}
+
+	logrus.Info("Validating ", string(canonical))
 
 	// Verify all the signatures now
 	for domain, sig := range signatures {
