@@ -6,7 +6,7 @@ Support room: [#matrix-key-server:t2bot.io](https://matrix.to/#/#matrix-key-serv
 
 **Caution**: Although this has notary server functionality, it is not yet recommended to point Synapse at this. It has not been tested - use at your own risk.
 
-Demo: https://federationtester.matrix.org#keys.t2host.io
+Demo: [https://federationtester.matrix.org#keys.t2host.io](https://federationtester.matrix.org#keys.t2host.io)
 
 ## Building and running
 
@@ -14,7 +14,7 @@ The key server will automatically generate itself a key to use on startup. The p
 only attached to a postgres instance and does not have any on-disk requirements other than the executable 
 itself.
 
-This project uses Go modules and requires Go 1.12 or higher. To enable modules, set `GO111MODULE=on`.
+This project uses Go modules and requires Go 1.19 or higher.
 
 ```bash
 # Build
