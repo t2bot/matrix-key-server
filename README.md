@@ -14,7 +14,7 @@ The key server will automatically generate itself a key to use on startup. The p
 only attached to a postgres instance and does not have any on-disk requirements other than the executable 
 itself.
 
-This project uses Go modules and requires Go 1.19 or higher.
+This project uses Go modules and requires Go 1.20 or higher.
 
 ```bash
 # Build
