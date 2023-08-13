@@ -17,6 +17,9 @@
 package main
 
 import (
+	"os"
+	"strings"
+
 	"github.com/namsral/flag"
 	"github.com/sirupsen/logrus"
 	"github.com/t2bot/matrix-key-server/api"
@@ -36,7 +39,17 @@ func main() {
 	flag.Parse()
 
 	logrus.Info("Preparing database...")
-	err := db.Setup(*pgUrl)
+	var err error
+	if strings.HasPrefix(*pgUrl, "/run/secrets") {
+		var b []byte
+		b, err = os.ReadFile(*pgUrl)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		err = db.Setup(strings.TrimSpace(string(b)))
+	} else {
+		err = db.Setup(*pgUrl)
+	}
 	if err != nil {
 		logrus.Fatal(err)
 	}
