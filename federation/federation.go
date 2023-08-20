@@ -138,8 +138,8 @@ func GetServerApiUrl(hostname string) (string, string, error) {
 
 					// Step 3c: if the delegated host is not an IP and doesn't have a port, start a SRV lookup and use it
 					// Note: we ignore errors here because the hostname will fail elsewhere.
-					logrus.Debug("Doing SRV on WK host ", wkHost)
-					_, addrs, _ := net.LookupSRV("matrix", "tcp", wkHost)
+					logrus.Debug("Doing SRV (fed) on WK host ", wkHost)
+					_, addrs, _ := net.LookupSRV("matrix-fed", "tcp", wkHost)
 					if len(addrs) > 0 {
 						// Trim off the trailing period if there is one (golang doesn't like this)
 						realAddr := addrs[0].Target
@@ -153,7 +153,24 @@ func GetServerApiUrl(hostname string) (string, string, error) {
 						return url, wkHost, nil
 					}
 
-					// Step 3d: use the delegated host as-is
+					// Step 3d: if the delegated host is not an IP and doesn't have a port, start a SRV lookup and use it
+					// Note: we ignore errors here because the hostname will fail elsewhere.
+					logrus.Debug("Doing SRV (deprecated) on WK host ", wkHost)
+					_, addrs, _ = net.LookupSRV("matrix", "tcp", wkHost)
+					if len(addrs) > 0 {
+						// Trim off the trailing period if there is one (golang doesn't like this)
+						realAddr := addrs[0].Target
+						if realAddr[len(realAddr)-1:] == "." {
+							realAddr = realAddr[0 : len(realAddr)-1]
+						}
+						url := fmt.Sprintf("https://%s:%d", realAddr, addrs[0].Port)
+						server := cachedServer{url, wkHost}
+						apiUrlCacheInstance.Set(hostname, server, cache.DefaultExpiration)
+						logrus.Info("Server API URL for " + hostname + " is " + url + " (WK; SRV)")
+						return url, wkHost, nil
+					}
+
+					// Step 3e: use the delegated host as-is
 					logrus.Debug("Using .well-known as-is for ", wkHost)
 					url := fmt.Sprintf("https://%s:%s", wkHost, wkPort)
 					server := cachedServer{url, wkHost}
@@ -167,8 +184,8 @@ func GetServerApiUrl(hostname string) (string, string, error) {
 
 	// Step 4: try resolving a hostname using SRV records and use it
 	// Note: we ignore errors here because the hostname will fail elsewhere.
-	logrus.Debug("Doing SRV for host ", hostname)
-	_, addrs, _ := net.LookupSRV("matrix", "tcp", hostname)
+	logrus.Debug("Doing SRV (fed) for host ", hostname)
+	_, addrs, _ := net.LookupSRV("matrix-fed", "tcp", hostname)
 	if len(addrs) > 0 {
 		// Trim off the trailing period if there is one (golang doesn't like this)
 		realAddr := addrs[0].Target
@@ -182,7 +199,24 @@ func GetServerApiUrl(hostname string) (string, string, error) {
 		return url, h, nil
 	}
 
-	// Step 5: use the target host as-is
+	// Step 5: try resolving a hostname using SRV records and use it
+	// Note: we ignore errors here because the hostname will fail elsewhere.
+	logrus.Debug("Doing SRV (deprecated) for host ", hostname)
+	_, addrs, _ = net.LookupSRV("matrix", "tcp", hostname)
+	if len(addrs) > 0 {
+		// Trim off the trailing period if there is one (golang doesn't like this)
+		realAddr := addrs[0].Target
+		if realAddr[len(realAddr)-1:] == "." {
+			realAddr = realAddr[0 : len(realAddr)-1]
+		}
+		url := fmt.Sprintf("https://%s:%d", realAddr, addrs[0].Port)
+		server := cachedServer{url, h}
+		apiUrlCacheInstance.Set(hostname, server, cache.DefaultExpiration)
+		logrus.Info("Server API URL for " + hostname + " is " + url + " (SRV)")
+		return url, h, nil
+	}
+
+	// Step 6: use the target host as-is
 	logrus.Debug("Using host as-is: ", hostname)
 	url := fmt.Sprintf("https://%s:%s", h, p)
 	server := cachedServer{url, h}
